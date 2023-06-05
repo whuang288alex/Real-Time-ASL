@@ -25,32 +25,32 @@ class ASLModel(nn.Module):
     
 # define the predictor
 class ASLPredictor():
-    letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+    letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y']
     def __init__(self, checkpoint_path, device):
-        self.model = ASLModel(26, device)
+        self.model = ASLModel(24, device)
         self.model.load_state_dict(torch.load(checkpoint_path, map_location=device))
         self.model.eval()
     
     def predict(self, img):
-        
         # transform the image to the correct format
         # TODO: find a better way to do this
         img = torch.from_numpy(img).float()
         img = img.permute(2, 0, 1)
         img = transforms.Resize((28, 28))(img)
         img = img.unsqueeze(0)
+        img /= 255.0
         
         # predict the letter
         output = self.model(img)
         predicted = torch.softmax(output,dim=1) 
-        _, predicted = torch.max(predicted, 1) 
+        score, predicted = torch.max(predicted, 1) 
         predicted = predicted.cpu() 
         idx = predicted[0]
-        return self.letters[idx]
+        return self.letters[idx], score.item()
 
 # define the hand detector
 class ASLDetector():
-    def __init__(self, predictor, margin=10, font_size=1, font_thickness=2, text_color=(255, 255, 255)):
+    def __init__(self, predictor, margin=10, font_size=1, font_thickness=1, text_color=(255, 255, 255)):
         # define constants
         self.predictor = predictor
         self.MARGIN = margin
@@ -60,7 +60,7 @@ class ASLDetector():
 
         # define the hand detector
         base_options = python.BaseOptions(model_asset_path='./assets/hand_landmarker.task')
-        options = vision.HandLandmarkerOptions(base_options=base_options, num_hands=2)
+        options = vision.HandLandmarkerOptions(base_options=base_options, num_hands=2, min_hand_detection_confidence= 0.7)
         self.detector = vision.HandLandmarker.create_from_options(options)
 
     # source: https://colab.research.google.com/github/googlesamples/mediapipe/blob/main/examples/hand_landmarker/python/hand_landmarker.ipynb
@@ -100,8 +100,9 @@ class ASLDetector():
             max_y = np.clip(max_y, 0, height)
             
             hand_frame = rgb_image[min_y:max_y, min_x:max_x]
-            letter = self.predictor.predict(hand_frame)
-            annotated_image = cv2.putText(annotated_image, letter, (100,100),  cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3, cv2.LINE_AA)
+            letter, score = self.predictor.predict(hand_frame)
+            annotated_image = cv2.putText(annotated_image, letter, (100,100),  cv2.FONT_HERSHEY_SIMPLEX, 1, self.TEXT_COLOR, self.FONT_THICKNESS, cv2.LINE_AA)
+            # annotated_image = cv2.putText(annotated_image, str(score*100), (100,120),  cv2.FONT_HERSHEY_SIMPLEX, 1, self.TEXT_COLOR, self.FONT_THICKNESS, cv2.LINE_AA)
             annotated_image = cv2.rectangle(annotated_image, (min_x, min_y), (max_x, max_y), (0, 255, 0), 2)
             cv2.imwrite("./images/hand_cache.jpg", hand_frame)
         return annotated_image
@@ -115,7 +116,7 @@ class ASLDetector():
 
 if __name__ == "__main__":
     vid = cv2.VideoCapture(0)
-    predictor = ASLPredictor("./assets/model_1.pt", "cpu")
+    predictor = ASLPredictor("./assets/model_3.pt", "cpu")
     detector = ASLDetector(predictor=predictor)
     os.makedirs("./images", exist_ok=True)
     while(True):
