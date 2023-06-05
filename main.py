@@ -1,5 +1,6 @@
 import os
 import cv2
+import time
 import torch
 import numpy as np
 import torch.nn as nn
@@ -7,10 +8,24 @@ import mediapipe as mp
 import torchvision.transforms as transforms
 from torchvision import models
 from mediapipe import solutions
+from flask import Flask, Response
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from mediapipe.framework.formats import landmark_pb2
 
+class Timer():
+    def __init__(self, duration):
+        self.tik = time.time()
+        self.tok = time.time()
+        self.duration = duration
+        
+    def times_up(self):
+        self.tok = time.time()
+        if self.tok - self.tik > self.duration:
+            self.tik = self.tok
+            return True
+        return False
+    
 # define the model
 class ASLModel(nn.Module):
     def __init__(self, num_class, device):
@@ -30,27 +45,31 @@ class ASLPredictor():
         self.model = ASLModel(24, device)
         self.model.load_state_dict(torch.load(checkpoint_path, map_location=device))
         self.model.eval()
+        self.predicted = None
+        self.timer = Timer(1)
     
     def predict(self, img):
-        # transform the image to the correct format
-        # TODO: find a better way to do this
-        img = torch.from_numpy(img).float()
-        img = img.permute(2, 0, 1)
-        img = transforms.Resize((28, 28))(img)
-        img = img.unsqueeze(0)
-        img /= 255.0
-        
-        # predict the letter
-        output = self.model(img)
-        predicted = torch.softmax(output,dim=1) 
-        score, predicted = torch.max(predicted, 1) 
-        predicted = predicted.cpu() 
-        idx = predicted[0]
-        return self.letters[idx], score.item()
+        if self.timer.times_up():
+            # transform the image to the correct format
+            # TODO: find a better way to do this
+            img = torch.from_numpy(img).float()
+            img = img.permute(2, 0, 1)
+            img = transforms.Resize((28, 28))(img)
+            img = img.unsqueeze(0)
+            img /= 255.0
+            
+            # predict the letter
+            output = self.model(img)
+            predicted = torch.softmax(output,dim=1) 
+            _, predicted = torch.max(predicted, 1) 
+            predicted = predicted.cpu() 
+            idx = predicted[0]
+            self.predicted = self.letters[idx]
+        return self.predicted
 
 # define the hand detector
 class ASLDetector():
-    def __init__(self, predictor, margin=10, font_size=1, font_thickness=1, text_color=(255, 255, 255)):
+    def __init__(self, predictor, margin=20, font_size=1, font_thickness=1, text_color=(255, 255, 255)):
         # define constants
         self.predictor = predictor
         self.MARGIN = margin
@@ -76,13 +95,13 @@ class ASLDetector():
             # Draw the hand landmarks.
             hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
             hand_landmarks_proto.landmark.extend([landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in hand_landmarks])
-            solutions.drawing_utils.draw_landmarks(
-                annotated_image,
-                hand_landmarks_proto,
-                solutions.hands.HAND_CONNECTIONS,
-                solutions.drawing_styles.get_default_hand_landmarks_style(),
-                solutions.drawing_styles.get_default_hand_connections_style()
-            )
+            # solutions.drawing_utils.draw_landmarks(
+            #     annotated_image,
+            #     hand_landmarks_proto,
+            #     solutions.hands.HAND_CONNECTIONS,
+            #     solutions.drawing_styles.get_default_hand_landmarks_style(),
+            #     solutions.drawing_styles.get_default_hand_connections_style()
+            # )
 
             # Get the top left and bottom right corner of the detected hand's bounding box.
             height, width, _ = annotated_image.shape
@@ -100,9 +119,8 @@ class ASLDetector():
             max_y = np.clip(max_y, 0, height)
             
             hand_frame = rgb_image[min_y:max_y, min_x:max_x]
-            letter, score = self.predictor.predict(hand_frame)
+            letter = self.predictor.predict(hand_frame)
             annotated_image = cv2.putText(annotated_image, letter, (100,100),  cv2.FONT_HERSHEY_SIMPLEX, 1, self.TEXT_COLOR, self.FONT_THICKNESS, cv2.LINE_AA)
-            # annotated_image = cv2.putText(annotated_image, str(score*100), (100,120),  cv2.FONT_HERSHEY_SIMPLEX, 1, self.TEXT_COLOR, self.FONT_THICKNESS, cv2.LINE_AA)
             annotated_image = cv2.rectangle(annotated_image, (min_x, min_y), (max_x, max_y), (0, 255, 0), 2)
             cv2.imwrite("./images/hand_cache.jpg", hand_frame)
         return annotated_image
