@@ -5,3 +5,5 @@ matplotlib==3.7.1
 torch==2.0.0
 torchvision==0.15.1
 mediapipe==0.10.0 
+pandas==2.0.2
+tqdm==4.65.0
