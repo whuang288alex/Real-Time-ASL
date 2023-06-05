@@ -117,6 +117,7 @@ if __name__ == "__main__":
     vid = cv2.VideoCapture(0)
     predictor = ASLPredictor("./assets/model_1.pt", "cpu")
     detector = ASLDetector(predictor=predictor)
+    os.makedirs("./images", exist_ok=True)
     while(True):
         # Capture the video frame and convert to mediapipe image
         ret, frame = vid.read()
