@@ -1,6 +1,7 @@
 ## Real-Time Sign Language Translation
 
 Author: Alex Huang (whuang288@wisc.edu), Xizheng Yu (xyu354@wisc.edu)
+
 Dataset: https://www.kaggle.com/datasets/datamunge/sign-language-mnist
 
 ### Set up the environment
