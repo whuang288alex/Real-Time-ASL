@@ -6,7 +6,7 @@ Dataset: https://www.kaggle.com/datasets/datamunge/sign-language-mnist
 ### Set up the environment
 
 ```
-conda create --name real_time_asl python=3.9
-conda activate real_time_asl
+conda create --name ASL python=3.9
+conda activate ASL
 python -m pip install -r requirements.txt
 ```
