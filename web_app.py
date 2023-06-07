@@ -1,15 +1,13 @@
 import cv2
 import warnings
 warnings.filterwarnings("ignore")
-from flask import Flask, Response
+from flask import Flask, Response, render_template
 from src.ASLModel import ASLModel
 from src.ASLPredictor import ASLPredictor
 from src.ASLDetector import ASLDetector
 
-app = Flask(__name__)
-video = cv2.VideoCapture(0)
 
-def gen(video):
+def process_video_stream(video):
     model = ASLModel(24, "cpu")
     predictor = ASLPredictor(model, "./assets/model_3.pt", "cpu")
     detector = ASLDetector(predictor=predictor)
@@ -34,10 +32,17 @@ def gen(video):
         # yield the frame in byte format
         yield (b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + annotated_frame.tobytes() + b'\r\n\r\n')
         
+app = Flask(__name__)
+video = cv2.VideoCapture(0)
+
 @app.route('/')
 def index():
+    return render_template('index.html')
+
+@app.route('/video_feed')
+def video_feed():
     global video
-    return Response(gen(video), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(process_video_stream(video), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=2207, threaded=False)
+    app.run(host='0.0.0.0', port=2200, threaded=True)
