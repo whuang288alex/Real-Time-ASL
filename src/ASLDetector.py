@@ -4,7 +4,7 @@ import mediapipe as mp
 
 # define the hand detector
 class ASLDetector():
-    def __init__(self, predictor, margin=20, font_size=1, font_thickness=1, text_color=(255, 0, 0)):
+    def __init__(self, predictor, margin=20, font_size=1, font_thickness=1, text_color=(76, 175, 80)):
         # define constants
         self.MARGIN = margin
         self.FONT_SIZE = font_size
@@ -41,7 +41,7 @@ class ASLDetector():
                 hand_frame = rgb_image[min_y:max_y, min_x:max_x]
                 letter = self.predictor.predict(hand_frame)
                 annotated_image = cv2.putText(annotated_image, letter, (100,100),  cv2.FONT_HERSHEY_SIMPLEX, 1, self.TEXT_COLOR, self.FONT_THICKNESS, cv2.LINE_AA)
-                annotated_image = cv2.rectangle(annotated_image, (min_x, min_y), (max_x, max_y), (255, 0, 0), 2)
+                annotated_image = cv2.rectangle(annotated_image, (min_x, min_y), (max_x, max_y), self.TEXT_COLOR, 2)
         return annotated_image
     
     def detect(self, image):
