@@ -9,7 +9,7 @@ from src.ASLDetector import ASLDetector
 
 def process_video_stream(video):
     model = ASLModel(24, "cpu")
-    predictor = ASLPredictor(model, "./assets/model_3.pt", "cpu")
+    predictor = ASLPredictor(model, "./ckpt/model_3.pt", "cpu")
     detector = ASLDetector(predictor=predictor)
     while True:
         success, image = video.read()
